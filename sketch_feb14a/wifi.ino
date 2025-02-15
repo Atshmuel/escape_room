@@ -9,13 +9,12 @@
 #define DIO D7   // The ESP8266 pin connected to DIO
 
 
-DIYables_4Digit7Segment_74HC595 display = DIYables_4Digit7Segment_74HC595(CLK, DIO);
+DIYables_4Digit7Segment_74HC595 display(SCLK, RCLK, DIO);
 
 IPAddress apIP(55, 55, 55, 55);
 
 const char* ssid = "Escape_Room";
-char* gamePassword = "";
-int qCnt = 4;
+String gamePassword = "";
 const char* password = "123123123";
 unsigned long wifiTime = 0;
 
@@ -39,6 +38,7 @@ void handleNotFound() {
 }
 
 void handleRoot() {
+
   String html = R"rawliteral(
     <!DOCTYPE html>
     <html lang="en">
@@ -74,66 +74,76 @@ void handleRoot() {
     </style>
     </head>
   <body dir="rtl">)rawliteral";
-  html += "<form method='get'>";
-  html += "<h2>הכנס את הקוד על מנת לצאת מהחדר</h2>";
-  html += "<input type='text' name='password'>";
-  html += "<input type='button' value='שלח'>";
+  String form = R"rawliteral(
+
+    <form method='get'>
+    <h2>הכנס את הקוד על מנת לצאת מהחדר</h2>
+<input type='text' name='password'>
+<button type='submit'>שלח</button>
+  )rawliteral";
+
 
   if (server.hasArg("password")) {
     if (server.arg("password").length() != 4) {
-      html += "<p class='fail'>לא נכון, נסה שוב</p>";
+      form += "<p class='fail'>לא נכון, נסה שוב</p>";
     } else {
       if (server.arg("password") == gamePassword) {
-        digitalWrite(lockPin, false);
-        html = "<form method='get'>";
-        html += "<p class='currect'>הצלחת לצאת מהחדר ! <br> ניפגש בפעם הבאה</p>";
+        digitalWrite(LPIN, false);
+        form = R"rawliteral(
+    <form method='get'>
+      <p class='currect'>הצלחת לצאת מהחדר ! <br> ניפגש בפעם הבאה</p>
+    )rawliteral";
       } else {
-        html += : "<p class='fail'>לא נכון, נסה שוב</p>";
+        form += "<p class='fail'>לא נכון, נסה שוב</p>";
       }
     }
-
-    html += "</form>";
-    html += "</body>";
-    html += "</html>";
-    server.send(200, "text/html", html);
   }
 
-  void handleMissionComplited() {
-    if (server.hasArg("missionCode")) {
-      gamePassword = gamePassword + server.arg("missionCode");
-      display.setNumber(qCnt, server.arg("missionCode").toInt());
-      qCnt--;
-      server.send(200);
-    }else{
-      server.send(400);
+  form+= "</form>";
+  html += form;
+  html += "</body>";
+  html += "</html>";
+  server.send(200, "text/html", html);
+}
+
+void handleMissionComplited() {
+  Serial.println("GET");
+  if (server.hasArg("missionCode")) {
+    if (server.arg("missionCode").length() == 1) {
+      gamePassword = server.arg("missionCode") + gamePassword;
+      display.printInt(gamePassword.toInt(), true);
+      server.send(200, "text/plain", "ok");
     }
+    server.send(404, "text/plain", "password to long");
+  } else {
+    server.send(404, "text/plain", "error");
   }
+}
 
 
-  void wifiSetup() {
-    Serial.begin(9600);
+void wifiSetup() {
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  WiFi.softAP(ssid, password);
 
-    WiFi.mode(WIFI_AP_STA);
-    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-    WiFi.softAP(ssid, password);
+  server.on("/api", handleMissionComplited);
+  server.on("/", handleRoot);
+  server.onNotFound(handleNotFound);
 
-    server.on("/", handleRoot);
-    server.on("/api", handleMissionComplited);
-    server.onNotFound(handleNotFound);
+  Serial.print("AP IP address: ");
+  Serial.println(apIP);
+  pinMode(LPIN, OUTPUT);
+  digitalWrite(LPIN, true);
+  wifiTime = millis();
+  display.clear();
+  display.printInt(0, true);
+  server.begin();
+}
 
-    Serial.print("AP IP address: ");
-    Serial.println(apIP);
-    pinMode(lockPin, OUTPUT);
-    digitalWrite(lockPin, true);
+void wifiLoop() {
+  if (millis() - wifiTime >= 10) {
     wifiTime = millis();
-    display.clear();
-    server.begin();
+    server.handleClient();
   }
-
-  void wifiLoop() {
-    if (millis() - wifiTime >= 10) {
-      wifiTime = millis();
-      server.handleClient();
-    }
-    display.loop();
-  }
+  display.loop();
+}
