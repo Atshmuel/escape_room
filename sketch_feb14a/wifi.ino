@@ -206,6 +206,9 @@ void handleRoot() {
 
 void handleMissionComplited() {
   Serial.println("GET");
+  if(server.hasArg("gameOn")){
+    digitalWrite(LPIN, true);
+  }
   if (server.hasArg("missionCode") && gamePassword.length() < 4) {
     if (server.arg("missionCode").length() == 1) {
       gamePassword = gamePassword + server.arg("missionCode");
@@ -231,7 +234,6 @@ void wifiSetup() {
   Serial.print("AP IP address: ");
   Serial.println(apIP);
   pinMode(LPIN, OUTPUT);
-  digitalWrite(LPIN, true);
   wifiTime = millis();
   display.clear();
   display.printInt(0, true);
