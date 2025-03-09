@@ -1,14 +1,14 @@
 #include <DHT.h>
 
 #define LR D1
-#define LG D2
-#define LB D3
-#define LY D4
+#define LG D3
+#define LB D4
+#define LY D2
 
-#define BR D1
-#define BG D2
-#define BB D3
-#define BY D4
+#define BR D8
+#define BG D7
+#define BB D6
+#define BY D5
 
 #define pinMuxA D5
 #define pinMuxB D6
@@ -26,8 +26,8 @@
 DHT dht(DHT_PIN, DHTTYPE);
 float lastTemp = 0;
 
-int Leds[NumOfLeds] = { LR, LG, LB, LY };
-int Btns[NumOfLeds] = { BR, BG, BB, BY };
+int Leds[NumOfLeds] = {LR, LG, LB, LY };
+int Btns[NumOfLeds] = {BR, BG, BB, BY };
 int ChosenIndexes[MaxNumOfLights];
 int btnsPressedIndexes[MaxNumOfLights];
 int btnsI = 0;
@@ -45,7 +45,6 @@ String state = "init";
 // end = "end";
 
 
-// stageOne Params:
 unsigned long startTime = 0;
 bool started = false;
 
@@ -65,6 +64,7 @@ void setup() {
   pinMode(pinMuxA, OUTPUT);
   pinMode(pinMuxB, OUTPUT);
   pinMode(pinMuxC, OUTPUT);
+  pinMode(pinMuxInOut, INPUT);
   pinMode(LR, OUTPUT);
   pinMode(LB, OUTPUT);
   pinMode(LY, OUTPUT);
@@ -73,7 +73,6 @@ void setup() {
   pinMode(BB, INPUT_PULLUP);
   pinMode(BY, INPUT_PULLUP);
   pinMode(BG, INPUT_PULLUP);
-  pinMode(pinMuxInOut, INPUT);
   pinMode(MOTOR_A, OUTPUT);
   pinMode(MOTOR_B, OUTPUT);
   randomSeed(analogRead(A0));
@@ -167,6 +166,7 @@ void stageTwo() {
 void stageThree() {
   if (!started) {
     Leds_Setup();
+    btnsI = 0;
     for (int i = 0; i < MaxNumOfLights; i++) {
       ChosenIndexes[i] = -1;
       btnsPressedIndexes[i] = -1;
@@ -175,24 +175,29 @@ void stageThree() {
     ShowLights();
     started = true;
   }
+
   if (started) {
-    while (btnsI < MaxNumOfLights) {
-      if (GetPressedBtn() != -1) {
-        btnsPressedIndexes[btnsI++] = GetPressedBtn();
-      }
+    int btn = GetPressedBtn();
+    if (btn != -1 && btnsI < MaxNumOfLights) {
+      Serial.println(btn);
+      Serial.println(btnsI);
+
+      btnsPressedIndexes[btnsI++] = btn;
     }
-    for (int i = 0; i < MaxNumOfLights; i++) {
-      if (btnsPressedIndexes[i] != ChosenIndexes[i]) {
+    if (btnsI == MaxNumOfLights) {
+      for (int i = 0; i < MaxNumOfLights; i++) {
+        if (btnsPressedIndexes[i] != ChosenIndexes[i]) {
+          started = false;
+          break;
+        }
+      }
+      if (started) {
+        state = "4";
+        SendData(7, true);
         started = false;
-        break;
+        Serial.println("Stage 3 Success");
+        delay(1000);
       }
-    }
-    if (started) {
-      state = "4";
-      started = false;
-      SendData(9, true);
-      Serial.println("Stage 3 Success");
-      delay(1000);
     }
   }
 }
@@ -200,7 +205,7 @@ int GetPressedBtn() {
   int BtnPressed = -1;
   for (int i = 0; i < NumOfLeds; i++) {
     val[i] = digitalRead(Btns[i]);
-    if ((val[i] == LOW) && (lastVal[i] == HIGH) && (millis() - lastPressTime[i] > 50)) {
+    if ((val[i] == LOW) && (lastVal[i] == HIGH) && (millis() - lastPressTime[i] > 150)) {
       lastPressTime[i] = millis();
       BtnPressed = i;
     }
@@ -211,12 +216,10 @@ int GetPressedBtn() {
 void ShowLights() {
   for (int i = 0; i < MaxNumOfLights; i++) {
     LedOn(ChosenIndexes[i]);
-  }
-  delay(1000);
-  for (int i = 0; i < MaxNumOfLights; i++) {
+    delay(1000);
     LedOff(ChosenIndexes[i]);
+    delay(500);
   }
-  delay(500);
 }
 void Leds_Setup() {
   for (int i = 0; i < NumOfLeds; i++) {
@@ -248,7 +251,7 @@ void loop() {
   if (state == "2") {
     stageTwo();
   }
-  if(state == "3"){
+  if (state == "3") {
     stageThree();
   }
 }
