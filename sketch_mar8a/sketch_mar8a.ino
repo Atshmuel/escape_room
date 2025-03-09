@@ -15,19 +15,19 @@
 #define pinMuxC D7
 #define pinMuxInOut A0
 
-#define Fan D4
+#define MOTOR_A D1
+#define MOTOR_B D2
+
 #define NumOfLeds 4
 #define MaxNumOfLights 8
 
-#define DHTTYPE DHT11  // אם לא עובד לנסות dht22
-#define DHT_PIN 4
-
+#define DHTTYPE DHT11  // works with dht11
+#define DHT_PIN D8
 DHT dht(DHT_PIN, DHTTYPE);
 float lastTemp = 0;
 
 int Leds[NumOfLeds] = { LR, LG, LB, LY };
 int ChosenIndexes[MaxNumOfLights];
-
 
 String state = "init";
 // stageOne = "1";
@@ -42,25 +42,16 @@ unsigned long startTime = 0;
 bool started = false;
 
 
-
 int ReadMuxChannel(byte chnl) {
-
   int a = (bitRead(chnl, 0) > 0) ? HIGH : LOW;
-
   int b = (bitRead(chnl, 1) > 0) ? HIGH : LOW;
-
   int c = (bitRead(chnl, 2) > 0) ? HIGH : LOW;
-
-
   digitalWrite(pinMuxA, a);
   digitalWrite(pinMuxB, b);
   digitalWrite(pinMuxC, c);
-
   int ret = analogRead(pinMuxInOut);
-
   return ret;
 }
-
 
 void setup() {
   pinMode(pinMuxA, OUTPUT);
@@ -75,11 +66,24 @@ void setup() {
   pinMode(BY, INPUT_PULLUP);
   pinMode(BG, INPUT_PULLUP);
   pinMode(pinMuxInOut, INPUT);
-  randomSeed(analogRead(A1));
+  pinMode(MOTOR_A, OUTPUT);
+  pinMode(MOTOR_B, OUTPUT);
+  randomSeed(analogRead(A0));
   for (int k = 0; k < MaxNumOfLights; k++) {
     ChosenIndexes[k] = -1;
   }
+  dht.begin();
   Serial.begin(9600);
+}
+
+void setOnFwd() {
+  digitalWrite(MOTOR_A, LOW);
+  digitalWrite(MOTOR_B, HIGH);
+}
+
+void fanOff() {
+  digitalWrite(MOTOR_A, LOW);
+  digitalWrite(MOTOR_B, LOW);
 }
 
 void handleAllLeds(int val) {
@@ -95,9 +99,9 @@ void preStart() {
     state = "1";
     SendData(0, false);
     Serial.println("START");
+    delay(1000);
   }
 }
-
 
 void stageOne() {
   int val = map(ReadMuxChannel(3), 0, 1023, 0, 255);
@@ -111,6 +115,7 @@ void stageOne() {
   }
 
   if (started) {
+    Serial.println(val);
     if (val > (255 * 0.8)) {
       started = false;
       startTime = millis();
@@ -120,53 +125,48 @@ void stageOne() {
         started = false;
         SendData(5, true);
         Serial.println("Stage 1 Success");
+        delay(1000);
       }
     }
   }
 }
 
 void stageTwo() {
-  //להדליק מאוורר
+  setOnFwd();
   if (!started) {
     lastTemp = dht.readTemperature();
+    Serial.print("Target: ");
+    Serial.println(lastTemp - 2);
     started = true;
   }
   if (started) {
+    delay(5000);
     float currentTemp = dht.readTemperature();
+    Serial.println(currentTemp);
     if (currentTemp <= lastTemp - 2) {
-      tempStartTime = millis();
-      if (startTime - tempStartTime >= 2000) {
+      if (millis() - startTime >= 2000) {
         state = "3";
         SendData(7, true);
+        started = false;
+        fanOff();
         Serial.println("Stage 2 Success");
+        delay(1000);
       }
     }
   }
-
-void stageThree() {
-  for (int k = 0; k < MaxNumOfLights; k++) {
-     ChosenIndexes[k] = random(0, NumOfLeds);
-  }
-  for (int k = 0; k < MaxNumOfLights; k++) {
-    LedBlink(ChosenIndexes[k]);
-  }
-}
-void LedBlink(int chnl) {
-  digitalWrite(Leds[chnl], HIGH);
-  delay(600);
-  digitalWrite(Leds[chnl], LOW);
-  delay(600);
 }
 
-  void loop() {
-    if (state == "init") {
-      preStart();
-    }
-    if (state == "1") {
-      stageOne();
-    }
-    if (state == "2") {
-      Serial.println("2");
-      delay(10000);
-    }
+void loop() {
+  if (state == "init") {
+    preStart();
   }
+  if (state == "1") {
+    stageOne();
+  }
+  if (state == "2") {
+    stageTwo();
+  }
+  if(state == "3"){
+    stageThree();
+  }
+}
