@@ -36,7 +36,6 @@ int lastVal[NumOfLeds];
 unsigned long lastPressTime[NumOfLeds];
 
 
-
 String state = "init";
 // stageOne = "1";
 // stageTwo = "2";
@@ -73,6 +72,7 @@ void setup() {
   pinMode(BB, INPUT_PULLUP);
   pinMode(BY, INPUT_PULLUP);
   pinMode(BG, INPUT_PULLUP);
+  pinMode(pinMuxInOut, INPUT);
   pinMode(MOTOR_A, OUTPUT);
   pinMode(MOTOR_B, OUTPUT);
   randomSeed(analogRead(A0));
@@ -241,6 +241,7 @@ void LedOff(int chnl) {
   digitalWrite(Leds[chnl], LOW);
 }
 
+
 void loop() {
   if (state == "init") {
     preStart();
@@ -251,7 +252,7 @@ void loop() {
   if (state == "2") {
     stageTwo();
   }
-  if (state == "3") {
+  if(state == "3"){
     stageThree();
   }
 }
