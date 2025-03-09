@@ -26,7 +26,15 @@ DHT dht(DHT_PIN, DHTTYPE);
 float lastTemp = 0;
 
 int Leds[NumOfLeds] = { LR, LG, LB, LY };
+int Btns[NumOfLeds] = { BR, BG, BB, BY };
 int ChosenIndexes[MaxNumOfLights];
+int btnsPressedIndexes[MaxNumOfLights];
+int btnsI = 0;
+int val[NumOfLeds];
+int lastVal[NumOfLeds];
+unsigned long lastPressTime[NumOfLeds];
+
+
 
 
 String state = "init";
@@ -75,10 +83,7 @@ void setup() {
   pinMode(BY, INPUT_PULLUP);
   pinMode(BG, INPUT_PULLUP);
   pinMode(pinMuxInOut, INPUT);
-  randomSeed(analogRead(A1));
-  for (int k = 0; k < MaxNumOfLights; k++) {
-    ChosenIndexes[k] = -1;
-  }
+  randomSeed(analogRead(A0));
   Serial.begin(9600);
 }
 
@@ -142,31 +147,91 @@ void stageTwo() {
       }
     }
   }
+}
 
 void stageThree() {
-  for (int k = 0; k < MaxNumOfLights; k++) {
-     ChosenIndexes[k] = random(0, NumOfLeds);
+  if (!started) {
+    Leds_Setup();
+    for (int i = 0; i < MaxNumOfLights; i++) {
+      ChosenIndexes[i] = -1;
+      btnsPressedIndexes[i] = -1;
+    }
+    ChooseRandomLights();
+    ShowLights();
+    started = true;
   }
-  for (int k = 0; k < MaxNumOfLights; k++) {
-    LedBlink(ChosenIndexes[k]);
+  if (started) {
+    while (btnsI < MaxNumOfLights) {
+      if (GetPressedBtn() != -1) {
+        btnsPressedIndexes[btnsI++] = GetPressedBtn();
+      }
+    }
+    for (int i = 0; i < MaxNumOfLights; i++) {
+      if (btnsPressedIndexes[i] != ChosenIndexes[i]) {
+        started = false;
+        break;
+      }
+    }
+    if (started) {
+      state = "4";
+      started = false;
+      SendData(9, true);
+      Serial.println("Stage 3 Success");
+      delay(1000);
+    }
   }
 }
-void LedBlink(int chnl) {
-  digitalWrite(Leds[chnl], HIGH);
-  delay(600);
-  digitalWrite(Leds[chnl], LOW);
-  delay(600);
+int GetPressedBtn() {
+  int BtnPressed = -1;
+  for (int i = 0; i < NumOfLeds; i++) {
+    val[i] = digitalRead(Btns[i]);
+    if ((val[i] == LOW) && (lastVal[i] == HIGH) && (millis() - lastPressTime[i] > 50)) {
+      lastPressTime[i] = millis();
+      BtnPressed = i;
+    }
+    lastVal[i] = val[i];
+  }
+  return BtnPressed;
+}
+void ShowLights() {
+  for (int i = 0; i < MaxNumOfLights; i++) {
+    LedOn(ChosenIndexes[i]);
+  }
+  delay(1000);
+  for (int i = 0; i < MaxNumOfLights; i++) {
+    LedOff(ChosenIndexes[i]);
+  }
+  delay(500);
+}
+void Leds_Setup() {
+  for (int i = 0; i < NumOfLeds; i++) {
+    LedOff(i);
+  }
 }
 
-  void loop() {
-    if (state == "init") {
-      preStart();
-    }
-    if (state == "1") {
-      stageOne();
-    }
-    if (state == "2") {
-      Serial.println("2");
-      delay(10000);
-    }
+void ChooseRandomLights() {
+  int rndNum;
+  for (int i = 0; i < MaxNumOfLights; i++) {
+    rndNum = random(0, NumOfLeds);
+    ChosenIndexes[i] = rndNum;
   }
+}
+void LedOn(int chnl) {
+  digitalWrite(Leds[chnl], HIGH);
+}
+void LedOff(int chnl) {
+  digitalWrite(Leds[chnl], LOW);
+}
+
+void loop() {
+  if (state == "init") {
+    preStart();
+  }
+  if (state == "1") {
+    stageOne();
+  }
+  if (state == "2") {
+    Serial.println("2");
+    delay(10000);
+  }
+}
