@@ -57,6 +57,7 @@ int ReadMuxChannel(byte chnl) {
 void setup() {
   randomSeed(analogRead(A0));
   stageOne_SetUp();
+  Leds_Setup();
   Serial.begin(9600);
 }
 
