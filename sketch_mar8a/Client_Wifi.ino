@@ -29,8 +29,8 @@ void wifi_Setup() {
 
 void SendData(int val, bool mission) {
   HTTPClient http;
-  String dataURL = "http://55.55.55.65/?name=";
-  dataURL += mission ? "missionCode" : "gameOn";
+  String dataURL = "http://55.55.55.55/api?";
+  dataURL += mission ? "missionCode=" : "gameOn";
 
   if (mission) {
     dataURL += String(val);

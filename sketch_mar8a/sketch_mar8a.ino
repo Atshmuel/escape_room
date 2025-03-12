@@ -5,7 +5,7 @@
 #define LB D4
 #define LY_MOTOR_B D2
 
-#define BR_DHT_PIN D8
+#define BR_DHT_PIN D4
 #define BG_pinMuxC D7
 #define BB_pinMuxB D6
 #define BY_pinMuxA D5
@@ -14,7 +14,7 @@
 
 
 #define NumOfLeds 4
-#define MaxNumOfLights 8
+#define MaxNumOfLights 2
 
 #define StartGame 30
 #define One 31
@@ -24,7 +24,7 @@
 #define EndGame 35
 
 
-#define DHTTYPE DHT11
+#define DHTTYPE DHT22
 DHT dht(BR_DHT_PIN, DHTTYPE);
 float lastTemp = 0;
 
@@ -55,10 +55,11 @@ int ReadMuxChannel(byte chnl) {
 }
 
 void setup() {
+  Serial.begin(9600);
+  wifi_Setup();
   randomSeed(analogRead(A0));
   stageOne_SetUp();
   Leds_Setup();
-  Serial.begin(9600);
 }
 
 void stageOne_SetUp() {
@@ -195,12 +196,13 @@ void stageThree() {
   if (started) {
     int btn = GetPressedBtn();
     if (btn != -1 && btnsI < MaxNumOfLights) {
-      Serial.println(btn);
-      Serial.println(btnsI);
       btnsPressedIndexes[btnsI++] = btn;
     }
     if (btnsI == MaxNumOfLights) {
       for (int i = 0; i < MaxNumOfLights; i++) {
+      Serial.print(btnsPressedIndexes[i]+ " ");
+      Serial.println(ChosenIndexes[i]);
+
         if (btnsPressedIndexes[i] != ChosenIndexes[i]) {
           started = false;
           break;
